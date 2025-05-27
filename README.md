@@ -5,6 +5,8 @@
 <font color=red> just to let you know, with copilot nowadays, coding this costs 5 min and then you would spend 5 hours on vcpkg and so on, 
 fighting against collision between macOS, Windows, VSCode, CMake etc.</font>
 
+REMEMBER TO USE C++20 TO USE std::format
+
 *note : use CMake to build*
 
 ## License

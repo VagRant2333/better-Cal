@@ -11,10 +11,10 @@ public:
 
     void print() const;
 
-private:
-    Option opts_;
-
     std::vector<std::string> renderMonth(int year, int month) const;
 
     std::vector<std::vector<std::string>> collectMonths() const;
+
+private:
+    Option opts_;
 };
