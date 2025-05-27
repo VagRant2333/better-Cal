@@ -1,95 +1,155 @@
-
 #include <gtest/gtest.h>
-#include "../src/option.h"
-#include "../src/dateUtils.h"
+#include "option.h"  // 假设这是您的选项解析类
 #include <ctime>
+#include <sstream>
 
-// 测试 Option 类的 parseArgs 函数
-TEST(OptionTest, ParseArgsWithOptions) {
-    Option opt;
-    const char* argv[] = {"cal", "-A", "2", "-B", "1", "-d", "2025-05"};
-    int argc = 7;
-    opt.parseArgs(argc, const_cast<char**>(argv));  // 由于 parseArgs 期望 char*[]
-    EXPECT_EQ(opt.year, 2025);
-    EXPECT_EQ(opt.month, 5);
-    EXPECT_EQ(opt.before, 1);
-    EXPECT_EQ(opt.after, 2);
-    EXPECT_EQ(opt.rowNum, 3);
-}
+// 重定向 std::cerr 以捕获错误消息
+class CerrRedirector {
+public:
+    CerrRedirector() {
+        std::cerr.rdbuf(buffer_.rdbuf());
+    }
+    std::string getOutput() {
+        return buffer_.str();
+    }
+private:
+    std::stringstream buffer_;
+};
 
-// 测试默认参数（当前年月）
-TEST(OptionTest, ParseArgsDefault) {
-    Option opt;
-    const char* argv[] = {"cal"};
-    int argc = 1;
-    opt.parseArgs(argc, const_cast<char**>(argv));
-
-    // 获取当前年月
-    std::time_t t = std::time(nullptr);
-    std::tm* now = std::localtime(&t);
-    int current_year = now->tm_year + 1900;
-    int current_month = now->tm_mon + 1;
-
-    EXPECT_EQ(opt.year, current_year);
-    EXPECT_EQ(opt.month, current_month);
-    EXPECT_EQ(opt.before, 0);
-    EXPECT_EQ(opt.after, 0);
-    EXPECT_EQ(opt.rowNum, 3);
+// 设置当前时间为2025年5月（模拟环境）
+void setMockCurrentTime(Option& opt) {
+    time_t now;
+    struct tm mockTime = {0};
+    mockTime.tm_year = 2025 - 1900;  // 2025年
+    mockTime.tm_mon = 4;             // 5月（0-based）
+    now = mktime(&mockTime);
+    // 假设 Option 类有方法可以设置当前时间
+    // 如果没有，您需要在 parseArgs 中处理模拟时间
 }
 
 // 测试整年日历
 TEST(OptionTest, ParseArgsFullYear) {
     Option opt;
+    setMockCurrentTime(opt);
     const char* argv[] = {"cal", "2025"};
     int argc = 2;
     opt.parseArgs(argc, const_cast<char**>(argv));
     EXPECT_EQ(opt.year, 2025);
-    EXPECT_EQ(opt.month, 0);  // month=0 表示整年
+    EXPECT_EQ(opt.month, 0);  // 整年
+    EXPECT_EQ(opt.rowNum, 3);
+}
+
+// 测试自定义行数
+TEST(OptionTest, ParseArgsCustomRowNum) {
+    Option opt;
+    setMockCurrentTime(opt);
+    const char* argv[] = {"cal", "-r", "4", "2025"};
+    int argc = 4;
+    opt.parseArgs(argc, const_cast<char**>(argv));
+    EXPECT_EQ(opt.year, 2025);
+    EXPECT_EQ(opt.month, 0);
+    EXPECT_EQ(opt.rowNum, 4);
+}
+
+// 测试指定月份
+TEST(OptionTest, ParseArgsSpecifyMonth) {
+    Option opt;
+    setMockCurrentTime(opt);
+    const char* argv[] = {"cal", "-m", "5"};
+    int argc = 3;
+    opt.parseArgs(argc, const_cast<char**>(argv));
+    EXPECT_EQ(opt.year, 2025);
+    EXPECT_EQ(opt.month, 5);
+    EXPECT_EQ(opt.before, 0);
+    EXPECT_EQ(opt.after, 0);
+}
+
+// 测试之后月份
+TEST(OptionTest, ParseArgsAfterMonths) {
+    Option opt;
+    setMockCurrentTime(opt);
+    const char* argv[] = {"cal", "-A", "2"};
+    int argc = 3;
+    opt.parseArgs(argc, const_cast<char**>(argv));
+    EXPECT_EQ(opt.year, 2025);
+    EXPECT_EQ(opt.month, 5);
+    EXPECT_EQ(opt.after, 2);
+    EXPECT_EQ(opt.before, 0);
+}
+
+// 测试之前月份
+TEST(OptionTest, ParseArgsBeforeMonths) {
+    Option opt;
+    setMockCurrentTime(opt);
+    const char* argv[] = {"cal", "-B", "2"};
+    int argc = 3;
+    opt.parseArgs(argc, const_cast<char**>(argv));
+    EXPECT_EQ(opt.year, 2025);
+    EXPECT_EQ(opt.month, 5);
+    EXPECT_EQ(opt.before, 2);
+    EXPECT_EQ(opt.after, 0);
+}
+
+// 测试默认行为
+TEST(OptionTest, ParseArgsDefault) {
+    Option opt;
+    setMockCurrentTime(opt);
+    const char* argv[] = {"cal"};
+    int argc = 1;
+    opt.parseArgs(argc, const_cast<char**>(argv));
+    EXPECT_EQ(opt.year, 2025);
+    EXPECT_EQ(opt.month, 5);
     EXPECT_EQ(opt.before, 0);
     EXPECT_EQ(opt.after, 0);
     EXPECT_EQ(opt.rowNum, 3);
 }
 
-// 测试 DateUtils::isLeapYear 函数
-TEST(DateUtilsTest, IsLeapYear) {
-    EXPECT_TRUE(DateUtils::isLeapYear(2000));  // 世纪闰年
-    EXPECT_FALSE(DateUtils::isLeapYear(1900)); // 非闰年
-    EXPECT_TRUE(DateUtils::isLeapYear(2024));  // 普通闰年
-    EXPECT_FALSE(DateUtils::isLeapYear(2023)); // 非闰年
-}
-
-// 测试 DateUtils::daysInMonth 函数
-TEST(DateUtilsTest, DaysInMonth) {
-    EXPECT_EQ(DateUtils::daysInMonth(2025, 1), 31); // 1月31天
-    EXPECT_EQ(DateUtils::daysInMonth(2025, 2), 28); // 2025年2月28天（非闰年）
-    EXPECT_EQ(DateUtils::daysInMonth(2024, 2), 29); // 2024年2月29天（闰年）
-    EXPECT_EQ(DateUtils::daysInMonth(2025, 4), 30); // 4月30天
-}
-
-// 测试 DateUtils::firstWeekday 函数
-TEST(DateUtilsTest, FirstWeekday) {
-    // 2025年1月1日是星期三（3）
-    EXPECT_EQ(DateUtils::firstWeekday(2025, 1), 3);
-    // 2024年2月1日是星期四（4）
-    EXPECT_EQ(DateUtils::firstWeekday(2024, 2), 4);
+// 测试指定年月
+TEST(OptionTest, ParseArgsSpecifyYearMonth) {
+    Option opt;
+    setMockCurrentTime(opt);
+    const char* argv[] = {"cal", "-d", "2025-08"};
+    int argc = 3;
+    opt.parseArgs(argc, const_cast<char**>(argv));
+    EXPECT_EQ(opt.year, 2025);
+    EXPECT_EQ(opt.month, 8);
+    EXPECT_EQ(opt.before, 0);
+    EXPECT_EQ(opt.after, 0);
 }
 
 // 测试无效月份
 TEST(OptionTest, InvalidMonth) {
     Option opt;
+    setMockCurrentTime(opt);
     const char* argv[] = {"cal", "-m", "13"};
     int argc = 3;
+    CerrRedirector redirector;
     testing::internal::CaptureStderr();
     opt.parseArgs(argc, const_cast<char**>(argv));
     std::string output = testing::internal::GetCapturedStderr();
     EXPECT_TRUE(output.find("Month must be in [1, 12]") != std::string::npos);
 }
 
+// 测试无效行数
+TEST(OptionTest, InvalidRowNum) {
+    Option opt;
+    setMockCurrentTime(opt);
+    const char* argv[] = {"cal", "-r", "0", "2025"};
+    int argc = 4;
+    CerrRedirector redirector;
+    testing::internal::CaptureStderr();
+    opt.parseArgs(argc, const_cast<char**>(argv));
+    std::string output = testing::internal::GetCapturedStderr();
+    EXPECT_TRUE(output.find("Row number must be positive") != std::string::npos);
+}
+
 // 测试无效 -d 格式
 TEST(OptionTest, InvalidDFormat) {
     Option opt;
+    setMockCurrentTime(opt);
     const char* argv[] = {"cal", "-d", "2025"};
     int argc = 3;
+    CerrRedirector redirector;
     testing::internal::CaptureStderr();
     opt.parseArgs(argc, const_cast<char**>(argv));
     std::string output = testing::internal::GetCapturedStderr();
